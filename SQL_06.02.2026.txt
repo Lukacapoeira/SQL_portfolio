@@ -1,0 +1,54 @@
+ /* STEP 1: Data Preparation (a1)
+   - Retrieve raw data (orders, positions, prices).
+   - Create a monthly key for chronological sorting.
+   - Filter for the year 2020 and exclude returned orders.
+*/
+with a1 as (select 
+extract(year_month from o.order_date) as klucz
+,month(o.order_date) as month1
+,o.order_id
+,o.order_date 
+,op.product_id
+,op.item_quantity
+,op.position_discount
+,p.product_price
+from orders o
+left join order_positions op on o.order_id = op.order_id
+left join products p on op.product_id=p.product_id
+where not exists(
+select * from order_returns or2
+where o.order_id=or2.order_id)
+and year(o.order_date)=2020)
+,
+/* STEP 2: Calculating Net GMV (a2)
+   - Calculate net value for each position (price * quantity).
+   - Apply discounts logic (using COALESCE to handle NULL values safely).
+*/
+	a2 as (select 
+	month1
+	,order_id
+	,case when position_discount > 0
+	then item_quantity*product_price*(1-coalesce(position_discount,0))
+	else item_quantity*product_price
+	end as gmv_net
+	from a1)
+	,
+/* STEP 3: Aggregation (a3)
+   - Aggregate sales (GMV) to the monthly level.
+   - Sort chronologically to prepare the dataset for the window function.
+*/
+		a3 as (select 
+		month1
+		,sum(gmv_net) as total_sales
+		from a2 
+		group by 1
+		order by 1 asc)
+/* STEP 4: Final Analysis (Window Function)
+   - Display current month's sales.
+   - Use LAG() to subtract the previous month's sales from the current one (MoM Delta).
+*/
+			select 
+			month1
+			,round(total_sales,2)
+			,round(total_sales -lag(total_sales)over(order by month1),2) as MoM
+			from a3
