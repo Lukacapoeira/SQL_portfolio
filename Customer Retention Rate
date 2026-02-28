@@ -1,0 +1,53 @@
+/* STEP 1: Base Data Extraction (a1)
+   - Extracting successful orders for the year 2020.
+   - Excluding returns to ensure we only count actual retained revenue.
+*/
+with a1 as (select 
+order_date
+,month(order_date) as month
+,customer_id
+from orders o
+where not exists 
+(select * from order_returns or2
+where or2.order_id = o.order_id )
+and year(o.order_date) = 2020)
+,
+	/* STEP 2: Defining the Baseline Cohort (a2)
+	   - Isolating unique customers who made a purchase in January (Month 1).
+	*/
+	a2 as (select
+	distinct(customer_id) as client
+	,month
+	from a1
+	where month=1
+	order by 1 asc)
+	,
+		/* STEP 3: Defining the Return Period (a3)
+		   - Isolating unique customers who made a purchase in April (Month 4).
+		*/
+		a3 as (select
+		distinct(customer_id) as client2
+		,month
+		from a1
+		where month=4
+		order by 1 asc)
+		,
+			/* STEP 4: Joining Cohorts & Counting (a4)
+			   - LEFT JOIN ensures all January customers are kept.
+			   - Counting a2.client gives the total baseline cohort.
+			   - Counting a3.client2 gives ONLY the users who matched (returned) in April.
+			*/
+				a4 as (
+				select 
+				count(a2.client) as january_client
+				,count(a3.client2) as april_client
+				from a2 
+				left join a3 on
+				a2.client = a3.client2)
+					/* STEP 5: Retention Rate Calculation
+					   - Calculating the percentage of returning customers.
+					   - Multiplying by 100.0 prevents integer division truncation and formats as %.
+					*/
+					select *
+					,(april_client/january_client)*100 as return_rate
+					from a4
