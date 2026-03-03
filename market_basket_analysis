@@ -1,0 +1,38 @@
+/* STEP 1: Base Data Extraction (a1)
+   - Extracting a clean list of Order IDs and Product IDs.
+   - Excluding returned orders to focus on successful transactions.
+*/
+with a1 as (select 
+o.order_id
+,op.product_id 
+from orders o
+left join order_positions op on o.order_id = op.order_id
+where not exists(select * from
+order_returns or2 where o.order_id = or2.order_id))
+,
+	/* STEP 2: The Self-Join (a2)
+   - Joining the 'a1' table to ITSELF to find pairs of products.
+   - We use aliases 'k1' and 'k2' to treat the single table as two separate ones.
+   - CRITICAL LOGIC: 'k1.product_id < k2.product_id' prevents mirroring 
+     (e.g., matching A with B, and then B with A) and prevents a product matching with itself.
+	*/
+	a2 as (
+	select 
+	k1.order_id
+	,k1.product_id as product_A
+	,k2.product_id as product_B
+	from a1 as k1
+	join a1 as k2 
+	on k1.order_id = k2.order_id 
+	and k1.product_id < k2.product_id)
+		/* STEP 3: Aggregation
+	   - Counting how many times each specific pair appeared together.
+	   - Sorting by the most popular combinations.
+		*/
+		select 
+		product_A
+		,product_B
+		,count(*) as times_bought_together
+		from a2
+		group by 1,2
+		order by times_bought_together desc
