@@ -1,0 +1,1 @@
+![Alt text](https://github.com/Lukacapoeira/SQL_portfolio/blob/main/Zrzut%20ekranu%202026-09-14%20184846.png?raw=true)
