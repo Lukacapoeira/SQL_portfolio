@@ -1,1 +1,105 @@
-https://private-user-images.githubusercontent.com/210669261/651945472-33093798-1aa0-4bee-b5cb-b0b4394a0288.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODk0NTM5NjYsIm5iZiI6MTc4OTQ1MzY2NiwicGF0aCI6Ii8yMTA2NjkyNjEvNjUxOTQ1NDcyLTMzMDkzNzk4LTFhYTAtNGJlZS1iNWNiLWIwYjQzOTRhMDI4OC5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwOTE1JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDkxNVQwNjI3NDZaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hYjFjZGExYTdjZmYxOGVkNTJiYTZmOWYxNDk2MzU0MmEwZmVhNTVlMTBkZjlmN2IxNmM0ZjUxNjQzOWRjYjcxJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.gvbw1-3et2veSA8sN5rxZ93QTrDsW4YlEa1pPmvncHQ
+#1 What is the total amount each customer spent at the restaurant?
+select 
+s.customer_id
+,sum(m.price) as total_spend
+from sales s 
+left join menu m on m.product_id = s.product_id 
+group by 1
+order by 2 desc 
+
+customer_id|total_spend|
+-----------+-----------+
+A          |         76|
+B          |         74|
+C          |         36|
+
+;
+
+#2 How many days has each customer visited the restaurant?
+select 
+customer_id
+,count(distinct(order_date)) as days_visited
+from sales s
+group by 1
+order by 2 desc
+
+customer_id|days_visited|
+-----------+------------+
+B          |           6|
+A          |           4|
+C          |           2|
+
+;
+
+#3 What was the first item from the menu purchased by each customer?
+select 
+numered.customer_id
+,numered.product_id
+,numered.order_date
+,m.product_name 
+from
+	(select 
+	customer_id
+	,order_date
+	,product_id
+	,dense_rank() over (partition by customer_id order by order_date asc) as first_purchase
+	from sales s) as numered
+left join menu m on numered.product_id = m.product_id 
+where numered.first_purchase =1
+
+customer_id|product_id|order_date|product_name|
+-----------+----------+----------+------------+
+A          |         1|2021-01-01|sushi       |
+A          |         2|2021-01-01|curry       |
+B          |         2|2021-01-01|curry       |
+C          |         3|2021-01-01|ramen       |
+C          |         3|2021-01-01|ramen       |
+
+;
+
+#4 What is the most purchased item on the menu and how many times was it purchased by all customers?
+select 
+counted.product_id 
+,counted.count_of_order 
+,m.product_name 
+from 
+	(select 
+	s.product_id
+	,count(s.product_id) as count_of_order
+	from sales s 
+	group by 1) as counted
+left join menu m on counted.product_id =m.product_id
+order by 2 desc
+limit 1
+
+product_id|count_of_order|product_name|
+----------+--------------+------------+
+         3|             8|ramen       |
+
+;
+
+#5 Which item was the most popular for each customer?
+select * from (select 
+c.customer_id 
+,c.count_of_order 
+,m.product_name 
+,dense_rank() over (partition by c.customer_id order by c.count_of_order desc) as best_seller
+from 
+	(select 
+	s.customer_id 
+	,s.product_id 
+	,count(s.product_id) as count_of_order
+	from sales s 
+	group by 1,2) as c
+left join menu m on c.product_id = m.product_id ) counted_order
+where counted_order.best_seller = 1
+
+customer_id|count_of_order|product_name|best_seller|
+-----------+--------------+------------+-----------+
+A          |             3|ramen       |          1|
+B          |             2|curry       |          1|
+B          |             2|sushi       |          1|
+B          |             2|ramen       |          1|
+C          |             3|ramen       |          1|
+
+;
