@@ -7,11 +7,11 @@ left join menu m on m.product_id = s.product_id
 group by 1
 order by 2 desc 
 
-customer_id|total_spend|
------------+-----------+
-A          |         76|
-B          |         74|
-C          |         36|
+			customer_id|total_spend|
+			-----------+-----------+
+			A          |         76|
+			B          |         74|
+			C          |         36|
 
 ;
 
@@ -23,11 +23,11 @@ from sales s
 group by 1
 order by 2 desc
 
-customer_id|days_visited|
------------+------------+
-B          |           6|
-A          |           4|
-C          |           2|
+			customer_id|days_visited|
+			-----------+------------+
+			B          |           6|
+			A          |           4|
+			C          |           2|
 
 ;
 
@@ -47,13 +47,13 @@ from
 left join menu m on numered.product_id = m.product_id 
 where numered.first_purchase =1
 
-customer_id|product_id|order_date|product_name|
------------+----------+----------+------------+
-A          |         1|2021-01-01|sushi       |
-A          |         2|2021-01-01|curry       |
-B          |         2|2021-01-01|curry       |
-C          |         3|2021-01-01|ramen       |
-C          |         3|2021-01-01|ramen       |
+			customer_id|product_id|order_date|product_name|
+			-----------+----------+----------+------------+
+			A          |         1|2021-01-01|sushi       |
+			A          |         2|2021-01-01|curry       |
+			B          |         2|2021-01-01|curry       |
+			C          |         3|2021-01-01|ramen       |
+			C          |         3|2021-01-01|ramen       |
 
 ;
 
@@ -72,9 +72,9 @@ left join menu m on counted.product_id =m.product_id
 order by 2 desc
 limit 1
 
-product_id|count_of_order|product_name|
-----------+--------------+------------+
-         3|             8|ramen       |
+			product_id|count_of_order|product_name|
+			----------+--------------+------------+
+			         3|             8|ramen       |
 
 ;
 
@@ -94,12 +94,179 @@ from
 left join menu m on c.product_id = m.product_id ) counted_order
 where counted_order.best_seller = 1
 
-customer_id|count_of_order|product_name|best_seller|
------------+--------------+------------+-----------+
-A          |             3|ramen       |          1|
-B          |             2|curry       |          1|
-B          |             2|sushi       |          1|
-B          |             2|ramen       |          1|
-C          |             3|ramen       |          1|
+			customer_id|count_of_order|product_name|best_seller|
+			-----------+--------------+------------+-----------+
+			A          |             3|ramen       |          1|
+			B          |             2|curry       |          1|
+			B          |             2|sushi       |          1|
+			B          |             2|ramen       |          1|
+			C          |             3|ramen       |          1|
 
 ;
+#6 Which item was purchased first by the customer after they became a member
+with a1 as (select 
+s.customer_id 
+,s.order_date 
+,s.product_id 
+,m.join_date 
+from sales s
+left join members m on s.customer_id = m.customer_id 
+where join_date is not null)
+,
+	a2 as (select 
+	a1.customer_id 
+	,a1.order_date 
+	,a1.join_date 
+	,a1.product_id 
+	,dense_rank() over (partition by customer_id order by order_date asc) as order_after_member
+	from a1
+	where a1.order_date >= join_date)
+		select 
+		a2.customer_id 
+		,m.product_name
+		,a2.order_date 
+		,a2.join_date 
+		,a2.order_after_member 
+		from a2 
+		left join menu m on m.product_id = a2.product_id 
+		where order_after_member =1
+			
+			customer_id|product_name|order_date|join_date |order_after_member|
+			-----------+------------+----------+----------+------------------+
+			A          |curry       |2021-01-07|2021-01-07|                 1|
+			B          |sushi       |2021-01-11|2021-01-09|                 1|
+
+;
+
+#7 Which item was purchased just before the customer became a member?
+with a1 as (select 
+s.customer_id 
+,s.order_date 
+,s.product_id 
+,m.join_date 
+from sales s
+left join members m on s.customer_id = m.customer_id 
+where join_date is not null)
+,
+	a2 as (select 
+	a1.customer_id 
+	,a1.order_date 
+	,a1.join_date 
+	,a1.product_id 
+	,dense_rank() over (partition by customer_id order by order_date desc) as order_before_member
+	from a1
+	where a1.order_date <= join_date)
+		select 
+		a2.customer_id 
+		,m.product_name
+		,a2.order_date 
+		,a2.join_date 
+		,a2.order_before_member 
+		from a2 
+		left join menu m on m.product_id = a2.product_id 
+		where order_before_member =1
+			
+			customer_id|product_name|order_date|join_date |order_before_member|
+			-----------+------------+----------+----------+-------------------+
+			A          |curry       |2021-01-07|2021-01-07|                  1|
+			B          |sushi       |2021-01-04|2021-01-09|                  1|
+
+;
+#8 What is the total items and amount spent for each member before they became a member?
+with a1 as (select 
+s.customer_id 
+,s.order_date 
+,s.product_id 
+,m.join_date 
+from sales s
+left join members m on m.customer_id = s.customer_id )
+,
+	a2 as (select 
+	a1.customer_id 
+	,a1.product_id 
+	,m.price 
+	from a1
+	left join menu m on m.product_id = a1.product_id 
+	where a1.order_date < join_date )
+		select 
+		a2.customer_id 
+		,count(a2.product_id) as total_ordered
+		,sum(a2.price) as total_spend
+		from a2
+		group by 1
+			
+			customer_id|total_ordered|total_spend|
+			-----------+-------------+-----------+
+			A          |            2|         25|
+			B          |            3|         40|
+
+;
+#9 If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
+select 
+customer_id
+,sum(points) as total_points
+	from (select 
+	s.customer_id 
+	,m.product_name 
+	,m.price 
+	,m2.join_date 
+	,case when m.product_name = 'sushi'
+	then m.price * 20
+	else price * 10
+	end as points
+	from sales s
+	left join menu m on s.product_id = m.product_id
+	left join members m2 on s.customer_id = m2.customer_id ) as points_table
+where points_table.join_date is not null
+group by 1
+order by 2 desc
+			
+			customer_id|total_points|
+			-----------+------------+
+			B          |         940|
+			A          |         860|
+
+;
+
+#10 In the first week after a customer joins the program (including their join date)
+# they earn 2x points on all items, not just sushi - how many points do customer A and B have at the end of January?
+with a1 as (select 
+s.customer_id 
+,m.price 
+,s.order_date 
+,m.product_name 
+,m2.join_date
+from sales s
+left join menu m on s.product_id = m.product_id
+right join members m2 on s.customer_id = m2.customer_id )
+,
+	a2 as (select 
+	a1.customer_id 
+	,a1.product_name 
+	,a1.price 
+	,a1.order_date 
+	,a1.join_date 
+	from a1 )
+	,
+		a3 as (select *
+		,case when order_date < DATE_ADD(join_date, interval 6 day) or product_name = 'sushi'
+		then price *20
+		else price * 10
+		end as points
+		from  a2
+		where join_date <= order_date)
+			select
+			customer_id
+			,sum(points) as total_points
+			from a3
+			where order_date <= '2021-01-31'
+			group by 1 
+			order by 2 desc
+
+				customer_id|total_points|
+				-----------+------------+
+				A          |        1020|
+				B          |         320|
+
+			;
+			
