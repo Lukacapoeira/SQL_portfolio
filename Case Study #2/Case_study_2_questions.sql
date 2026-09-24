@@ -133,3 +133,36 @@ where changed = 'double_change'
 		total_count_of_fouble_change|
 		----------------------------+
 		                           1|
+;
+#9 What was the total volume of pizzas ordered for each hour of the day?
+select 
+hour(order_time) as hours_order
+,count(pizza_id) as count_of_order
+from customer_orders co 
+group by 1
+order by 1 asc
+		
+		hours_order|count_of_order|
+		-----------+--------------+
+		         11|             1|
+		         13|             3|
+		         18|             3|
+		         19|             1|
+		         21|             3|
+		         23|             3|
+;
+#10 What was the volume of orders for each day of the week?
+select 
+WEEKDAY(order_time)+1 as week_day
+,DAYNAME(order_time) as day_name
+,count(pizza_id) as count_of_pizza
+from customer_orders co 
+group by 1,2
+order by 1 asc
+	
+		week_day|day_name |count_of_pizza|
+		--------+---------+--------------+
+		       3|Wednesday|             5|
+		       4|Thursday |             3|
+		       5|Friday   |             1|
+		       6|Saturday |             5|
